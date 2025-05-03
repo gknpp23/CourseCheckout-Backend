@@ -171,4 +171,4 @@ router.put('/confirm-payment/:transactionId', asyncHandler(async (req, res) => {
   });
 }));
 
-export default router;
+module.exports = router;
