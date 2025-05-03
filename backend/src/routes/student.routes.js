@@ -54,9 +54,14 @@ router.post('/inscricao', [
     const aluno = new Student({ nome, idade, email, celular });
     await aluno.save();
 
-    // Envia o e-mail de confirmação (sem bloquear a resposta)
-    sendEmail(email, 'Confirmação de Inscrição', `Olá ${nome}, sua inscrição foi realizada com sucesso!`)
-      .catch(err => console.error('Erro ao enviar e-mail:', err));
+    // Envia o e-mail de confirmação de forma assíncrona, sem bloquear a resposta
+    (async () => {
+      try {
+        await sendEmail(email, 'Confirmação de Inscrição', `Olá ${nome}, sua inscrição foi realizada com sucesso!`);
+      } catch (err) {
+        console.error('Erro ao enviar e-mail:', err);
+      }
+    })();
 
     return res.status(201).json({
       success: true,
@@ -71,5 +76,6 @@ router.post('/inscricao', [
     return res.status(500).json({ success: false, message: 'Erro interno ao salvar inscrição' });
   }
 }));
+
 
 module.exports = router;
