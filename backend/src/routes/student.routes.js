@@ -27,10 +27,10 @@ router.post('/inscricao', [
 
   const { nome, idade, email, celular } = req.body;
   
-  const alunoExistente = await Student.findOne({ email });
-  if (alunoExistente) {
-    return res.status(409).json({ success: false, message: 'E-mail já cadastrado' });
-  }
+  // const alunoExistente = await Student.findOne({ email });
+  // if (alunoExistente) {
+  //   return res.status(409).json({ success: false, message: 'E-mail já cadastrado' });
+  // }
 
   const aluno = new Student({ nome, idade, email, celular });
   await aluno.save();
