@@ -2,6 +2,7 @@ const express = require('express');
 const { post } = require('axios');
 const Student = require('../db/models/Student.js'); // Ajuste o caminho conforme sua estrutura
 const asyncHandler = require('../middlewares/asyncHandler.js'); // Middleware para tratamento de erros
+const { sendEmail } = require('../services/email.services'); // Corrigido: importação ausente
 
 const router = express.Router();
 
@@ -37,24 +38,37 @@ const createPaymentBilling = async (billingData) => {
 
 // Rota de checkout
 router.post('/checkout', asyncHandler(async (req, res) => {
-  const { nome, email, celular, taxId } = req.body;
+  const { nome, email, celular, taxId, idade } = req.body;
+
+  if (!nome || !email || !celular || !taxId) {
+    return res.status(400).json({ success: false, message: 'Nome, email, celular e CPF/CNPJ são obrigatórios' });
+  }
+
+  // Sanitiza o CPF/CNPJ
+  const taxIdSanitizado = taxId.replace(/\D/g, '');
 
   // 1. Criar cliente no gateway
   const customerData = {
     name: nome,
     cellphone: celular,
-    taxId: taxId,
-    email: email,
+    taxId: taxIdSanitizado,
+    email,
     metadata: { email }
   };
 
-  const customerResponse = await createPaymentCustomer(customerData);
+  let customerResponse;
+  try {
+    customerResponse = await createPaymentCustomer(customerData);
+  } catch (err) {
+    return res.status(502).json({ success: false, message: 'Erro ao criar cliente no gateway de pagamento' });
+  }
+
   const customerId = customerResponse.customerId || customerResponse.id;
 
   // 2. Criar aluno no banco de dados
   const aluno = new Student({ 
     nome, 
-    idade: req.body.idade || null, 
+    idade: idade || null, 
     email, 
     celular,
     customerId 
@@ -66,7 +80,7 @@ router.post('/checkout', asyncHandler(async (req, res) => {
     frequency: 'ONE_TIME',
     methods: ['PIX'],
     products: [{
-      externalId: 'prod-1234',
+      externalId: 'assinatura_fitness_mensal', // Renomeado para ser mais semântico
       name: 'Assinatura de Programa Fitness',
       description: 'Acesso ao programa fitness premium por 1 mês.',
       quantity: 1,
@@ -78,17 +92,23 @@ router.post('/checkout', asyncHandler(async (req, res) => {
     customer: customerData
   };
 
-  const billingResponse = await createPaymentBilling(billingData);
+  let billingResponse;
+  try {
+    billingResponse = await createPaymentBilling(billingData);
+  } catch (err) {
+    return res.status(502).json({ success: false, message: 'Erro ao criar cobrança no gateway de pagamento' });
+  }
+
   const checkoutUrl = billingResponse.data?.url || billingResponse.url;
 
   // 4. Atualizar aluno com dados da transação
-  aluno.transactionId = billingResponse.id;
+  aluno.billingId = billingResponse.id; // Renomeado para mais clareza
   await aluno.save();
 
   res.json({ 
     success: true, 
     checkoutUrl,
-    transactionId: aluno._id
+    transactionId: aluno._id // Pode manter esse nome se for usado no frontend
   });
 }));
 

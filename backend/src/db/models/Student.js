@@ -1,3 +1,5 @@
+// models/Student.js
+
 const { Schema, model } = require('mongoose');
 
 // Define o esquema de aluno
@@ -47,21 +49,5 @@ const studentSchema = new Schema({
   }
 }, { timestamps: true });
 
-// Verificar se o e-mail já está registrado antes de salvar
-studentSchema.pre('save', async function(next) {
-  const student = this;
-  if (!student.isModified('email')) return next();
-
-  try {
-    const existingStudent = await model('Student').findOne({ email: student.email });
-    if (existingStudent) {
-      return next(new Error('Este e-mail já está registrado.'));
-    }
-    next();
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Exporte o modelo de Student
+// Exporta o modelo de Student
 module.exports = model('Student', studentSchema);
