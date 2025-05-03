@@ -1,0 +1,16 @@
+{
+  "build": {
+    "timeout": 600,
+    "nixpacks": {
+      "config": {
+        "nodeVersion": "^18",
+        "installCommand": "npm install --omit=dev --no-audit --prefer-offline",
+        "buildCommand": "npm run build",
+        "cache": {
+          "enabled": true,
+          "paths": ["node_modules", "~/.npm"]
+        }
+      }
+    }
+  }
+}
