@@ -92,6 +92,8 @@ router.post('/checkout', asyncHandler(async (req, res) => {
     customer: customerData
   };
 
+
+
   let billingResponse;
   try {
     billingResponse = await createPaymentBilling(billingData);
