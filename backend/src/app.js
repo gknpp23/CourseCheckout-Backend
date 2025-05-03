@@ -9,7 +9,7 @@ const app = express();
 // Configuração de CORS
 const corsOptions = {
   origin: [
-    'https://course-checkout.vercel.app/',
+    'https://course-checkout.vercel.app',
     'http://localhost:3000' // Para desenvolvimento
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
