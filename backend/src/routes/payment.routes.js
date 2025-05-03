@@ -1,7 +1,7 @@
-import express from 'express';
-import { post } from 'axios';
-import Student from '../models/Student.js'; // Ajuste o caminho conforme sua estrutura
-import asyncHandler from '../middlewares/asyncHandler.js'; // Middleware para tratamento de erros
+const express = require('express');
+const { post } = require('axios');
+const Student = require('../models/Student.js'); // Ajuste o caminho conforme sua estrutura
+const asyncHandler = require('../middlewares/asyncHandler.js'); // Middleware para tratamento de erros
 
 const router = express.Router();
 
