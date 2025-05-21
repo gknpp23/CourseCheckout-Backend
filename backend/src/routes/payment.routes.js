@@ -1,8 +1,8 @@
 const express = require('express');
 const { post } = require('axios');
-const Student = require('../db/models/Student.js'); // Ajuste o caminho conforme sua estrutura
+const Student = require('../db/models/Student.js'); 
 const asyncHandler = require('../middlewares/asyncHandler.js'); // Middleware para tratamento de erros
-const { sendEmail } = require('../services/email.services'); // Corrigido: importação ausente
+const { sendEmail } = require('../services/email.services'); 
 
 const router = express.Router();
 
