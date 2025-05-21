@@ -80,11 +80,11 @@ router.post('/checkout', asyncHandler(async (req, res) => {
     frequency: 'ONE_TIME',
     methods: ['PIX'],
     products: [{
-      externalId: 'assinatura_fitness_mensal', // Renomeado para ser mais semântico
-      name: 'Assinatura de Programa Fitness',
-      description: 'Acesso ao programa fitness premium por 1 mês.',
+      externalId: 'taxa_inscricao_curso', 
+      name: 'Taxa de inscrição do curso',
+      description: 'Taxa de inscrição do curso de alisamento',
       quantity: 1,
-      price: 2000 // em centavos
+      price: 5000 // em centavos
     }],
     returnUrl: process.env.PAYMENT_RETURN_URL,
     completionUrl: process.env.PAYMENT_SUCCESS_URL,
@@ -110,7 +110,7 @@ router.post('/checkout', asyncHandler(async (req, res) => {
   res.json({ 
     success: true, 
     checkoutUrl,
-    transactionId: aluno._id // Pode manter esse nome se for usado no frontend
+    transactionId: aluno._id 
   });
 }));
 
