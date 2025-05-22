@@ -19,6 +19,7 @@ const studentSchema = new Schema({
     type: String, 
     required: true, 
     unique: true, 
+    index:true,
     trim: true, 
     lowercase: true, 
     match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'E-mail inválido'] 

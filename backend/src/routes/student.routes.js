@@ -18,6 +18,7 @@ router.get('/verificar-email', asyncHandler(async (req, res) => {
 }));
 
 // Rota de inscrição
+
 router.post('/inscricao', [
   body('nome')
     .notEmpty().withMessage('Nome é obrigatório')
@@ -45,35 +46,37 @@ router.post('/inscricao', [
 
   const { nome, idade, email, celular } = req.body;
 
-  const emailJaExiste = await Student.findOne({ email });
-  if (emailJaExiste) {
-    return res.status(409).json({ success: false, message: 'E-mail já cadastrado' });
-  }
-
   try {
-    const aluno = new Student({ nome, idade, email, celular });
-    await aluno.save();
-
-    // Envia o e-mail de confirmação de forma assíncrona, sem bloquear a resposta
-    (async () => {
-      try {
-        await sendEmail(email, 'Confirmação de Inscrição', `Olá ${nome}, sua inscrição foi realizada com sucesso!`);
-      } catch (err) {
-        console.error('Erro ao enviar e-mail:', err);
-      }
-    })();
+    // Método create() verifica duplicatas automaticamente
+    const aluno = await Student.create({ nome, idade, email, celular });
+    
+    // Envio de email SÍNCRONO (aguarda conclusão)
+    await sendEmail(
+      email, 
+      'Confirmação de Inscrição', 
+      `Olá ${nome}, sua inscrição #${aluno._id} foi confirmada!`
+    );
 
     return res.status(201).json({
       success: true,
-      aluno: {
-        id: aluno._id,
-        nome: aluno.nome,
-        email: aluno.email
-      }
+      aluno: { id: aluno._id, nome, email }
     });
+
   } catch (err) {
-    console.error('Erro ao salvar aluno:', err);
-    return res.status(500).json({ success: false, message: 'Erro interno ao salvar inscrição' });
+    // Erro específico de e-mail duplicado
+    if (err.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: 'Este e-mail já está cadastrado',
+        errorCode: 'DUPLICATE_EMAIL'
+      });
+    }
+
+    console.error('Erro no cadastro:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Falha ao processar inscrição'
+    });
   }
 }));
 
