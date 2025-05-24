@@ -1,8 +1,10 @@
+// src/routes/payment.routes.js
 const express = require('express');
 const { post } = require('axios');
 const Student = require('../db/models/Student.js'); 
-const asyncHandler = require('../middlewares/asyncHandler.js'); // Middleware para tratamento de erros
+const asyncHandler = require('../middlewares/asyncHandler.js');
 const { sendEmail } = require('../services/email.services'); 
+const mongoose = require('mongoose');
 
 const router = express.Router();
 
@@ -36,85 +38,96 @@ const createPaymentBilling = async (billingData) => {
   return makePaymentRequest('/billing/create', billingData);
 };
 
-// Rota de checkout
+// Rota de checkout com prevenção de duplicidade
+
 router.post('/checkout', asyncHandler(async (req, res) => {
   const { nome, email, celular, taxId, idade } = req.body;
 
+  // Validação básica
   if (!nome || !email || !celular || !taxId) {
-    return res.status(400).json({ success: false, message: 'Nome, email, celular e CPF/CNPJ são obrigatórios' });
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Nome, email, celular e CPF/CNPJ são obrigatórios' 
+    });
   }
 
-  // Sanitiza o CPF/CNPJ
-  const taxIdSanitizado = taxId.replace(/\D/g, '');
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  // 1. Criar cliente no gateway
-  const customerData = {
-    name: nome,
-    cellphone: celular,
-    taxId: taxIdSanitizado,
-    email,
-    metadata: { email }
-  };
-
-  let customerResponse;
   try {
-    customerResponse = await createPaymentCustomer(customerData);
+    // 1. Verifica/Cria aluno
+    const aluno = await Student.findOneAndUpdate(
+      { email },
+      { 
+        nome, idade: idade || null, celular,
+        statusPagamento: 'pending'
+      },
+      { 
+        upsert: true, 
+        new: true, 
+        session,
+        setDefaultsOnInsert: true 
+      }
+    );
+
+    // 2. Cria cliente no gateway
+    const customerResponse = await createPaymentCustomer({
+      name: nome,
+      email,
+      cellphone: celular,
+      taxId: taxId.replace(/\D/g, ''),
+      metadata: { studentId: aluno._id.toString() }
+    });
+
+    // 3. Cria cobrança
+    const billingResponse = await createPaymentBilling({
+      customerId: customerResponse.data.id,
+      frequency: 'ONE_TIME',
+      methods: ['PIX'],
+      products: [{
+        name: 'Taxa de inscrição',
+        price: 5000, // em centavos
+        quantity: 1
+      }],
+      returnUrl: process.env.PAYMENT_RETURN_URL,
+      metadata: { studentId: aluno._id.toString() }
+    });
+
+    // 4. Atualiza aluno
+    aluno.customerId = customerResponse.data.id;
+    aluno.billingId = billingResponse.data.id;
+    await aluno.save({ session });
+
+    await session.commitTransaction();
+
+    res.json({
+      success: true,
+      checkoutUrl: billingResponse.data.payment_url,
+      transactionId: aluno._id
+    });
+
   } catch (err) {
-    return res.status(502).json({ success: false, message: 'Erro ao criar cliente no gateway de pagamento' });
+    await session.abortTransaction();
+    console.error('Erro no checkout:', err);
+    
+    if (err.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: 'Já existe uma inscrição com este e-mail'
+      });
+    }
+    
+    res.status(500).json({ 
+      success: false, 
+      message: 'Falha no processamento',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  } finally {
+    session.endSession();
   }
-
-  const customerId = customerResponse.customerId || customerResponse.id;
-
-  // 2. Criar aluno no banco de dados
-  const aluno = new Student({ 
-    nome, 
-    idade: idade || null, 
-    email, 
-    celular,
-    customerId 
-  });
-  await aluno.save();
-
-  // 3. Criar cobrança
-  const billingData = {
-    frequency: 'ONE_TIME',
-    methods: ['PIX'],
-    products: [{
-      externalId: 'taxa_inscricao_curso', 
-      name: 'Taxa de inscrição do curso',
-      description: 'Taxa de inscrição do curso de alisamento',
-      quantity: 1,
-      price: 5000 // em centavos
-    }],
-    returnUrl: process.env.PAYMENT_RETURN_URL,
-    completionUrl: process.env.PAYMENT_SUCCESS_URL,
-    customerId,
-    customer: customerData
-  };
-
-
-
-  let billingResponse;
-  try {
-    billingResponse = await createPaymentBilling(billingData);
-  } catch (err) {
-    return res.status(502).json({ success: false, message: 'Erro ao criar cobrança no gateway de pagamento' });
-  }
-
-  const checkoutUrl = billingResponse.data?.url || billingResponse.url;
-
-  // 4. Atualizar aluno com dados da transação
-  aluno.billingId = billingResponse.id; // Renomeado para mais clareza
-  await aluno.save();
-
-  res.json({ 
-    success: true, 
-    checkoutUrl,
-    transactionId: aluno._id 
-  });
 }));
 
-// Webhook de pagamento
+// Webhook de pagamento (mantido igual)
 router.post("/webhook", express.json(), asyncHandler(async (req, res) => {
   console.log("📩 Requisição recebida no webhook");
 
@@ -165,7 +178,7 @@ router.post("/webhook", express.json(), asyncHandler(async (req, res) => {
   res.status(200).send("Evento não tratado");
 }));
 
-// Rota administrativa para confirmação manual de pagamento
+// Rota administrativa para confirmação manual de pagamento (mantida igual)
 router.put('/confirm-payment/:transactionId', asyncHandler(async (req, res) => {
   const { transactionId } = req.params;
   const aluno = await Student.findByIdAndUpdate(
