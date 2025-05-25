@@ -29,7 +29,8 @@
     "mongoose": "8.0.3",
     "nodemailer": "^6.10.0",
     "rimraf": "6.0.1",
-    "superagent": "^10.2.0"
+    "superagent": "^10.2.0",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
@@ -47,7 +48,7 @@
     "typescript": "^5.8.2"
   },
   "engines": {
-    "node": "18.x",
+    "node": ">=18.x <=20.x",
     "npm": ">=9.x"
   },
   "resolutions": {
